@@ -414,12 +414,18 @@
     </header>
 
     <!-- SCREEN 0: SPLASH / TITLE -->
-    <section id="screen-splash" class="screen active">
+    <!-- [FIX] onclick 인라인 핸들러: app.js 로드 전에도 탭을 감지 -->
+    <section id="screen-splash" class="screen active" onclick="
+      this.classList.remove('active');
+      var h = document.getElementById('screen-home');
+      if (h) h.classList.add('active');
+      window._splashDone = true;
+    ">
       <div
-        style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;">
         <img src="./Main_Intro.png" alt="The Book Wardens"
-          style="max-width: 100%; max-height: 80vh; object-fit: contain; filter: drop-shadow(0 0 30px rgba(139, 47, 201, 0.4)); margin-bottom: 20px;">
-        <div class="start-prompt">Touch to Start</div>
+          style="max-width: 100%; max-height: 80vh; object-fit: contain; filter: drop-shadow(0 0 30px rgba(139, 47, 201, 0.4)); margin-bottom: 20px; pointer-events: none;">
+        <div class="start-prompt" style="pointer-events: none;">Touch to Start</div>
       </div>
     </section>
 
@@ -1258,6 +1264,13 @@
         });
       }
 
+      // [FIX] 스플래시는 인라인 onclick으로 처리 완료.
+      // app.js 로드 후 혹시 home이 아직 active가 아니면 정리만 해줌.
+      function _afterBootSplashCheck() {
+        if (window._splashDone) return; // 이미 탭했으면 끔
+        // 아직 탭 안 했으면 splash가 active 상태 — app.js의 initSplash()가 처리
+      }
+
       try {
         // ── 3. 핵심 유틸 ─────────────────
         await loadScript('./js/memory-logger.js');
@@ -1279,6 +1292,7 @@
         // ── 7. 메인 앱 ───────────────────
         await loadScript('./js/app.js');
 
+        _afterBootSplashCheck();
         console.log('[BOOT] ✅ All scripts loaded');
       } catch (e) {
         console.error('[BOOT] ❌', e.message);

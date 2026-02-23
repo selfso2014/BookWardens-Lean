@@ -91,9 +91,18 @@ function updateHUD() {
 // 0. SPLASH
 // ═══════════════════════════════════════════════════════════════════
 function initSplash() {
-    document.getElementById('screen-splash').addEventListener('click', () => {
+    // 인라인 onclick이 이미 처리했으면 아무것도 안 함
+    if (window._splashDone) return;
+    const splash = document.getElementById('screen-splash');
+    if (!splash) return;
+    splash.addEventListener('click', () => {
         showScreen('screen-home');
     }, { once: true });
+    // touchstart도 등록 (iOS에서 click 지연 방지)
+    splash.addEventListener('touchstart', () => {
+        if (window._splashDone) return;
+        showScreen('screen-home');
+    }, { once: true, passive: true });
 }
 
 // ═══════════════════════════════════════════════════════════════════
