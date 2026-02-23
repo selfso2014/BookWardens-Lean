@@ -107,8 +107,7 @@ class SeesoManager {
     }
 
     // ── 2단계: 시선 추적 시작 ────────────────────────────────────
-    // easy-seeso.js 공식 방식: startTracking(onGaze, onDebug)
-    // 내부에서 getUserMedia() 호출 → stream은 SDK가 직접 관리
+    // 카메라 해상도를 640x480으로 제한 (iPhone 15 Pro 기본=고해상도 → 메모리 폭발 방지)
     startTracking(onGaze, onDebug) {
         if (!this._seeso || !this._initialized) {
             MemoryLogger.error('TRACK', 'startTracking: SDK not initialized');
@@ -122,7 +121,6 @@ class SeesoManager {
 
         this._onDebug = (fps, latMin, latMax, latAvg) => {
             MemoryLogger.info('SDK_DBG', `FPS=${fps} lat(min=${latMin} max=${latMax} avg=${typeof latAvg?.toFixed === 'function' ? latAvg.toFixed(1) : latAvg}ms)`);
-            // gaze Hz 헤더 업데이트
             const el = document.getElementById('gaze-fps');
             if (el) el.textContent = fps;
             if (onDebug) onDebug(fps, latMin, latMax, latAvg);
@@ -131,8 +129,22 @@ class SeesoManager {
         this._setState('tracking', 'starting');
         MemoryLogger.snapshot('TRACKING_START');
 
-        // 공식 방법: 2인자 (stream 전달 없음)
-        this._seeso.startTracking(this._onGaze, this._onDebug)
+        // 카메라 해상도 제약: 640x480 (iOS 고해상도 기본값으로 인한 메모리 크래시 방지)
+        const videoConstraints = {
+            facingMode: 'user',
+            width: { ideal: 640, max: 640 },
+            height: { ideal: 480, max: 480 },
+        };
+
+        navigator.mediaDevices.getUserMedia({ video: videoConstraints })
+            .then((stream) => {
+                this._stream = stream;
+                const track = stream.getVideoTracks()[0];
+                const s = track?.getSettings() || {};
+                MemoryLogger.info('TRACK', `Camera: ${s.width}x${s.height}`);
+                // 제약된 stream을 SDK에 직접 전달 (3rd arg)
+                return this._seeso.startTracking(this._onGaze, this._onDebug, stream);
+            })
             .then((ok) => {
                 MemoryLogger.info('TRACK', `startTracking returned: ${ok}`);
                 this._tracking = ok;
