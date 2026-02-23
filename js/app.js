@@ -104,28 +104,45 @@ function initSplash() {
 // 0.5 HOME
 // ═══════════════════════════════════════════════════════════════════
 function initHome() {
-    document.getElementById('btn-start-game').addEventListener('click', startSDKInit);
+    const btn = document.getElementById('btn-start-game');
+    if (!btn) {
+        MemoryLogger.error('APP', 'btn-start-game NOT FOUND in DOM!');
+        return;
+    }
+    MemoryLogger.info('APP', 'btn-start-game bound ✅');
+    btn.addEventListener('click', () => {
+        MemoryLogger.info('APP', 'Start Game clicked!');
+        startSDKInit().catch(e => MemoryLogger.error('APP', 'startSDKInit failed: ' + e.message, e.stack));
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // SDK 초기화 → FACE CHECK → CALIBRATION
 // ═══════════════════════════════════════════════════════════════════
 async function startSDKInit() {
+    MemoryLogger.info('APP', 'startSDKInit() called');
+
+    // EasySeeso / SeesoManager 존재 확인
+    MemoryLogger.info('APP', `EasySeeso=${typeof window.EasySeeso} | SeesoManager=${typeof window.SeesoManager}`);
+
     // Loading modal 표시
     const modal = document.getElementById('sdk-loading-modal');
     if (modal) modal.style.display = 'flex';
 
-    G.seesoMgr = new SeesoManager();
-    const ok = await G.seesoMgr.initSDK((progress, msg) => {
-        const bar = modal?.querySelector('.sdk-progress-bar');
-        const txt = modal?.querySelector('.sdk-status-text');
-        if (bar) bar.style.width = Math.round(progress * 100) + '%';
-        if (txt) txt.textContent = msg || 'Loading...';
-    });
+    try {
+        G.seesoMgr = new SeesoManager();
+    } catch (e) {
+        MemoryLogger.error('APP', 'new SeesoManager() failed: ' + e.message);
+        alert('SeesoManager 로드 실패. 새로고침 해주세요.');
+        return;
+    }
+
+    const ok = await G.seesoMgr.initSDK();
 
     if (modal) modal.style.display = 'none';
 
     if (!ok) {
+        MemoryLogger.error('APP', 'SDK init failed → alert');
         alert('SDK initialization failed. Please refresh.');
         return;
     }
@@ -750,11 +767,14 @@ function _bindButtons() {
     MemoryLogger.info('APP', '=== BookWardens-Lean v1.0 ===');
     MemoryLogger.snapshot('APP_START');
 
-    _bindButtons();
-    initSplash();
-    initHome();
+    // SDK 클래스 로드 상태 확인
+    MemoryLogger.info('APP', `Classes: EasySeeso=${typeof window.EasySeeso} SeesoManager=${typeof window.SeesoManager} PangDetector=${typeof window.PangDetector} LeanRenderer=${typeof window.LeanRenderer}`);
+
+    try { _bindButtons(); } catch (e) { MemoryLogger.error('APP', '_bindButtons threw: ' + e.message); }
+    try { initSplash(); } catch (e) { MemoryLogger.error('APP', 'initSplash threw: ' + e.message); }
+    try { initHome(); } catch (e) { MemoryLogger.error('APP', 'initHome threw: ' + e.message); }
 
     window.__app = G; // 디버그용
 
-    MemoryLogger.info('APP', 'Ready.');
+    MemoryLogger.info('APP', 'Ready. screen=' + G.currentScreen);
 })();
