@@ -91,18 +91,13 @@ function updateHUD() {
 // 0. SPLASH
 // ═══════════════════════════════════════════════════════════════════
 function initSplash() {
-    // 인라인 onclick이 이미 처리했으면 아무것도 안 함
+    // [FIX] 로딩 중 이미 탭했으면 (_splashDone 플래그) 즉시 홈으로 전환
+    // index.html 인라인 onclick이 이미 화면 전환 + _splashDone=true 처리함
     if (window._splashDone) return;
-    const splash = document.getElementById('screen-splash');
-    if (!splash) return;
-    splash.addEventListener('click', () => {
+    // 아직 탭 안 했으면 이벤트 리스너 등록
+    document.getElementById('screen-splash').addEventListener('click', () => {
         showScreen('screen-home');
     }, { once: true });
-    // touchstart도 등록 (iOS에서 click 지연 방지)
-    splash.addEventListener('touchstart', () => {
-        if (window._splashDone) return;
-        showScreen('screen-home');
-    }, { once: true, passive: true });
 }
 
 // ═══════════════════════════════════════════════════════════════════

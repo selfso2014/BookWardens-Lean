@@ -1276,8 +1276,10 @@
         await loadScript('./js/memory-logger.js');
 
         // ── 4. SeeSo SDK ──────────────────
-        // easy-seeso.js: 공식 래퍼 (내부에서 seeso.min.js 로드)
+        // easy-seeso.js: IIFE 래퍼 → 동적 import()로 seeso.min.js 로드 후 window.EasySeeso 노출
         await loadScript('./seeso/easy-seeso.js');
+        // seeso.min.js 동적 import 완료 대기 (window.__easySeesoPending)
+        if (window.__easySeesoPending) await window.__easySeesoPending;
 
         // ── 5. 게임 엔진 모듈 ────────────
         await loadScript('./js/seeso-manager.js');
