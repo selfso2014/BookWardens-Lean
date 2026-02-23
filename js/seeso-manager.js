@@ -107,7 +107,7 @@ class SeesoManager {
     }
 
     // ── 2단계: 시선 추적 시작 ────────────────────────────────────
-    // 카메라 해상도를 640x480으로 제한 (iPhone 15 Pro 기본=고해상도 → 메모리 폭발 방지)
+    // 카메라 해상도·프레임레이트 제한 (iPhone 15 Pro 고해상도/고fps → 메모리 폭발 방지)
     startTracking(onGaze, onDebug) {
         if (!this._seeso || !this._initialized) {
             MemoryLogger.error('TRACK', 'startTracking: SDK not initialized');
@@ -129,19 +129,28 @@ class SeesoManager {
         this._setState('tracking', 'starting');
         MemoryLogger.snapshot('TRACKING_START');
 
-        // 카메라 해상도 제약: 640x480 (iOS 고해상도 기본값으로 인한 메모리 크래시 방지)
+        // iOS/Safari 감지: 더 보수적인 설정 적용
+        const isIOS = /iP(hone|ad|od)/i.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const targetFPS = (isIOS || isSafari) ? 15 : 20; // iOS=15fps, PC=20fps
+
+        // 카메라 제약: 해상도 640x480 + 프레임레이트 제한
+        // → 메모리 처리량 대폭 감소 (iPhone 15 Pro 기본 30fps 4K 대비 ~50배 감소)
         const videoConstraints = {
             facingMode: 'user',
             width: { ideal: 640, max: 640 },
             height: { ideal: 480, max: 480 },
+            frameRate: { ideal: targetFPS, max: targetFPS },
         };
+
+        MemoryLogger.info('TRACK', `Camera constraints: 640x480 @${targetFPS}fps (iOS=${isIOS})`);
 
         navigator.mediaDevices.getUserMedia({ video: videoConstraints })
             .then((stream) => {
                 this._stream = stream;
                 const track = stream.getVideoTracks()[0];
                 const s = track?.getSettings() || {};
-                MemoryLogger.info('TRACK', `Camera: ${s.width}x${s.height}`);
+                MemoryLogger.info('TRACK', `Camera actual: ${s.width}x${s.height} @${s.frameRate?.toFixed(1)}fps`);
                 // 제약된 stream을 SDK에 직접 전달 (3rd arg)
                 return this._seeso.startTracking(this._onGaze, this._onDebug, stream);
             })
@@ -158,6 +167,7 @@ class SeesoManager {
 
         return true;
     }
+
 
     // ── 3단계: 1포인트 캘리브레이션 ─────────────────────────────
     startCalibration(onNextPoint, onProgress, onFinished) {
