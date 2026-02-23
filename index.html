@@ -1,0 +1,1314 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Book Wardens</title>
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://selfso2014.github.io/TheBookWardens_MVP/">
+  <meta property="og:title" content="The Book Wardens">
+  <meta property="og:description" content="Reading is a game powered by your eyes.">
+  <meta property="og:image" content="https://selfso2014.github.io/TheBookWardens_MVP/TheBookWardens.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://selfso2014.github.io/TheBookWardens_MVP/">
+  <meta property="twitter:title" content="The Book Wardens">
+  <meta property="twitter:description" content="Reading is a game powered by your eyes.">
+  <meta property="twitter:image" content="https://selfso2014.github.io/TheBookWardens_MVP/TheBookWardens.png">
+  <script>
+    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1" && location.protocol !== "https:") {
+      location.replace(`https:${location.href.substring(location.protocol.length)}`);
+    }
+  </script>
+  <link rel="stylesheet" href="./css/style.css?v=v14.1.0" />
+  <link rel="stylesheet" href="./css/rune-game.css" />
+  <link rel="stylesheet" href="./css/rabbit.css" />
+  <link rel="stylesheet" href="./css/splash.css" />
+  <link rel="stylesheet" href="./css/victory.css" />
+  <link rel="stylesheet" href="./css/fx.css" />
+  <link rel="stylesheet" href="./css/rift.css" />
+
+  <!-- [FIX-iOS] Firebase v10 compat removed (was duplicate alongside v8 below).
+       firebase-config.js was executing twice and two SDK instances lived in memory.
+       v8 compat (Realtime Database) below is the canonical single load. -->
+  <link rel="stylesheet" href="./css/rift-book.css" />
+  <link rel="stylesheet" href="./css/alice-battle.css?v=v14.1.0" />
+  <link rel="stylesheet" href="./css/loading-modal.css" />
+
+
+  <!-- Firebase SDK: [v33] Deferred load — NOT loaded at page start.
+       Reason: Firebase SDK creates WebSocket connections immediately on load.
+       On iOS Chrome (iPhone 15 Pro), failed connections retry in a loop
+       adding ~5 EventListeners/sec (LSN explosion) → combined with WASM
+       190MB this pushes the WebContent process over the iOS jetsam limit.
+       Fix: Load Firebase SDK dynamically ONLY when user clicks "Claim Reward".
+       See: game.js loadFirebaseSDK() -->
+  <!-- firebase-app.js, firebase-database.js, firebase-config.js → deferred -->
+
+  <script src="./coi-serviceworker.js"></script>
+  <!-- Chart.js removed: not needed in Lean version -->
+  <style>
+    /* Villian Modal Styles used for Typewriter Mode */
+    #villain-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 30000;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+    }
+
+    .villain-card {
+      background: #1a1a1a;
+      color: #f0f0f0;
+      width: 90%;
+      max-width: 500px;
+      padding: 30px;
+      border-radius: 12px;
+      border: 2px solid #d32f2f;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(211, 47, 47, 0.4);
+      position: relative;
+    }
+
+    .villain-avatar {
+      font-size: 4rem;
+      margin-bottom: 10px;
+    }
+
+    .villain-title {
+      font-family: 'Creepster', cursive, serif;
+      color: #ff4444;
+      font-size: 2rem;
+      margin: 0 0 15px 0;
+    }
+
+    .quiz-question {
+      font-size: 1.2rem;
+      margin-bottom: 25px;
+      line-height: 1.4;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .quiz-btn {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .quiz-btn:hover {
+      background: #444;
+      border-color: #888;
+    }
+
+    .quiz-btn.correct {
+      background: #2e7d32;
+      border-color: #1b5e20;
+    }
+
+    .quiz-btn.wrong {
+      background: #c62828;
+      border-color: #b71c1c;
+    }
+
+    /* Typewriter Paragraph Style */
+    #book-content p {
+      font-family: 'Crimson Text', serif;
+      font-size: 1.5rem;
+      line-height: 2.7;
+      /* Increased by 50% */
+      margin-bottom: 2rem;
+      white-space: pre-wrap;
+      /* Preserve formatting */
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      /*폰트 크기에 비례 */
+      background-color: #f0c420;
+      /* Gold Cursor */
+      vertical-align: text-bottom;
+      animation: blink 0.8s infinite;
+      margin-left: 2px;
+      transition: box-shadow 0.2s;
+    }
+
+    .cursor.glow-good {
+      box-shadow: 0 0 10px 2px rgba(255, 215, 0, 0.6);
+      /* Gold glow */
+    }
+
+    .cursor.glow-perfect {
+      box-shadow: 0 0 20px 5px rgba(0, 255, 0, 0.8), 0 0 40px 10px rgba(0, 255, 0, 0.4);
+      /* Strong Green glow */
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0;
+      }
+    }
+
+    .fake-fixation {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background: rgba(0, 255, 0, 0.4);
+      /* Semi-transparent Green */
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1000;
+      transform: translate(-50%, -50%);
+      animation: scaleIn 0.3s ease-out forwards;
+      box-shadow: 0 0 5px rgba(0, 255, 0, 0.4);
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+      }
+
+      to {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+    }
+
+    .villain-img {
+      width: 150px;
+      height: auto;
+      margin-bottom: 15px;
+      filter: drop-shadow(0 0 10px rgba(138, 43, 226, 0.6));
+    }
+
+    /* WPM Button Styles */
+    .wpm-btn:active {
+      transform: scale(0.95) !important;
+      background: #555 !important;
+    }
+
+    .wpm-btn.selected {
+      border: 2px solid #00ff00 !important;
+      box-shadow: 0 0 15px rgba(0, 255, 0, 0.6) !important;
+      transform: scale(0.95) !important;
+      background: #444 !important;
+      color: #fff !important;
+    }
+
+    /* --- [NEW] Visual-Only Alice Battle Mode Styles (Independent) --- */
+    #screen-final-boss.alice-battle-mode {
+      /* Override default column layout slightly */
+      justify-content: space-between !important;
+      padding-top: 20px;
+      padding-bottom: 20px;
+      box-sizing: border-box;
+    }
+
+    #screen-final-boss.alice-battle-mode .entity-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      position: relative;
+      z-index: 10;
+    }
+
+    #screen-final-boss.alice-battle-mode .avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 3px solid rgba(255, 255, 255, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 40px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+
+    #screen-final-boss.alice-battle-mode .villain .avatar {
+      border-color: #ff4d4d;
+      color: #ff4d4d;
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+      animation: pulseRed 2s infinite;
+    }
+
+    @keyframes pulseRed {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+      }
+
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px rgba(255, 0, 0, 0.6);
+      }
+
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+      }
+    }
+
+    #screen-final-boss.alice-battle-mode .warden .avatar {
+      border-color: #4da6ff;
+      color: #4da6ff;
+      box-shadow: 0 0 20px rgba(0, 200, 255, 0.3);
+    }
+
+    #screen-final-boss.alice-battle-mode .card-container {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 5px 0;
+    }
+
+    #screen-final-boss.alice-battle-mode .card {
+      width: 60px;
+      height: 85px;
+      background: rgba(20, 20, 25, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+      position: relative;
+    }
+
+    #screen-final-boss.alice-battle-mode .card i {
+      font-size: 1.2rem;
+      margin-bottom: 2px;
+    }
+
+    #screen-final-boss.alice-battle-mode .card span {
+      font-size: 0.6rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      opacity: 0.8;
+    }
+
+    #screen-final-boss.alice-battle-mode .status-bar {
+      width: 150px;
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #555;
+    }
+
+    #screen-final-boss.alice-battle-mode .hp {
+      height: 100%;
+      /* Full HP for visual mode */
+    }
+
+    #screen-final-boss.alice-battle-mode .middle-text {
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.3);
+      /* Subtle */
+      font-family: 'Crimson Text', serif;
+      font-style: italic;
+      padding: 0 30px;
+      line-height: 1.6;
+      font-size: 1.1rem;
+      user-select: none;
+    }
+  </style>
+  <!-- App initialized by app.js (loadScript chain below) -->
+</head>
+
+<body>
+  <!-- 1. Eye Tracking Layer (Background/Debug) -->
+  <div id="stage">
+    <video id="camera-preview" autoplay muted playsinline></video>
+    <!-- SDK(seeso.js)가 id="preview" canvas를 내부에서 찾음 → video와 충돌 방지를 위해 분리 -->
+    <canvas id="preview" style="display:none; position:absolute; top:0; left:0;"></canvas>
+    <canvas id="output"></canvas>
+  </div>
+
+  <!-- 2. Global HUD (Debug Overlay) -->
+  <div id="hud">
+    <div id="status">Initializing...</div>
+    <div id="gazeInfo">gaze: -</div>
+    <div id="pills">
+      <span class="pill" id="pillCoi">-</span>
+      <span class="pill" id="pillPerm">-</span>
+      <span class="pill" id="pillSdk">-</span>
+      <span class="pill" id="pillTrack">-</span>
+      <span class="pill" id="pillCal">-</span>
+      <button id="btnRetry" type="button" style="pointer-events:all;">Reload SDK</button>
+    </div>
+  </div>
+
+  <!-- 3. MAIN GAME UI CONTAINER -->
+  <div id="game-ui">
+
+    <!-- Top Navigation Header -->
+    <header class="game-header">
+      <div class="user-level" style="font-family: 'Cinzel', serif; color: #ffd700;">Rank: Warden</div>
+
+      <!-- Expanded Resource HUD (Ink, Rune, Gem, WPM) -->
+      <div class="hud-container" style="display: flex; gap: 15px; align-items: center;">
+
+        <!-- Ink -->
+        <div class="resource-item" title="Ink Collected">
+          <img src="./ink.png" class="res-icon" alt="Ink">
+          <span id="ink-count">0</span>
+        </div>
+
+        <!-- Rune -->
+        <div class="resource-item" title="Runes Deciphered">
+          <img src="./rune.png" class="res-icon" alt="Rune">
+          <span id="rune-count">0</span>
+        </div>
+
+        <!-- Gem -->
+        <div class="resource-item" title="Gems Earned">
+          <img src="./gem.png" class="res-icon" alt="Gem">
+          <span id="gem-count">0</span>
+        </div>
+
+        <!-- WPM (Speed) -->
+        <div class="resource-item wpm-badge" title="Reading Speed">
+          <span style="font-size: 0.8rem; color: #aaa; margin-right: 5px;">⚡</span>
+          <span id="wpm-display">0</span>
+          <small style="font-size: 0.7rem; color: #888; margin-left: 2px;">WPM</small>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- SCREEN 0: SPLASH / TITLE -->
+    <section id="screen-splash" class="screen active">
+      <div
+        style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <img src="./Main_Intro.png" alt="The Book Wardens"
+          style="max-width: 100%; max-height: 80vh; object-fit: contain; filter: drop-shadow(0 0 30px rgba(139, 47, 201, 0.4)); margin-bottom: 20px;">
+        <div class="start-prompt">Touch to Start</div>
+      </div>
+    </section>
+
+    <style>
+      /* ... existing styles ... */
+      @keyframes fadeInSafe {
+        from {
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        to {
+          opacity: 1;
+          pointer-events: auto;
+        }
+      }
+    </style>
+
+    <!-- SCREEN 0.5: HOME / LOBBY -->
+    <section id="screen-home" class="screen">
+      <h1 class="title-logo">The Book Wardens</h1>
+      <p
+        style="margin-top: -10px; margin-bottom: 40px; color: #ffd700; font-family: 'Cinzel', serif; font-size: 1.2rem; font-style: italic; letter-spacing: 2px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);">
+        Rift of Pages
+      </p>
+
+      <div style="margin-bottom: 50px; opacity: 0.9;">
+        <p style="font-size: 1.5rem; color: #fff; font-family: 'Cinzel', serif; font-weight: 300; letter-spacing: 1px;">
+          "Reading is a game."
+        </p>
+      </div>
+
+      <button id="btn-start-game" class="btn-primary"
+        style="margin-top: 40px; padding: 20px 40px; font-size: 1.5rem; animation: pulse 2s infinite;">
+        Start Game
+      </button>
+
+      <!-- Debug Button Removed -->
+    </section>
+
+    <!-- SCREEN 0.4: FACE CHECK (NEW) -->
+    <section id="screen-face-check" class="screen">
+      <div style="text-align: center; color: white; width: 100%; max-width: 400px;">
+        <h2 style="font-family: 'Cinzel', serif; margin-bottom: 30px; line-height: 1.4;">
+          Adjust your device angle<br>to fit your face in the frame.
+        </h2>
+
+        <!-- Face Frame Container -->
+        <div class="face-frame"
+          style="width: 200px; height: 200px; border: 3px dashed rgba(255, 255, 255, 0.3); border-radius: 20px; margin: 0 auto 30px auto; position: relative; display: flex; align-items: center; justify-content: center; transition: border-color 0.3s;">
+
+          <!-- Guide Icon (Initially Hidden) -->
+          <img id="face-guide-icon" src="./detection_guide_face.png" alt="Face Guide"
+            style="width: 60%; opacity: 0; transition: opacity 0.3s ease; filter: drop-shadow(0 0 10px #00ff00);">
+
+        </div>
+
+        <!-- Status Text -->
+        <p id="face-check-status" style="color: #aaa; font-size: 1.1rem; margin-bottom: 40px; min-height: 1.5em;">
+          Face not detected...
+        </p>
+
+        <!-- Next Button (Initially Disabled) -->
+        <button id="btn-face-next" class="btn-primary" disabled
+          style="padding: 15px 50px; opacity: 0.5; cursor: not-allowed; transition: all 0.3s;">
+          Next
+        </button>
+
+        <p class="tip" style="color: #666; font-size: 0.9rem; margin-top: 20px;">
+          If detection fails, check your front camera or lighting.
+        </p>
+      </div>
+    </section>
+
+    <!-- SCREEN 0.5: CALIBRATION -->
+    <section id="screen-calibration" class="screen">
+      <div
+        style="position: fixed; top: 0; left: 0; z-index: 20000; pointer-events: none; width: 100%; height: 100%; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 50px;">
+        <div id="calibration-status" style="display: none;"></div>
+        <button id="btn-calibration-start" class="btn-primary" style="display:none; pointer-events:auto;">Start
+          Point</button>
+      </div>
+    </section>
+
+    <!-- Calibration Fail Popup -->
+    <div id="cal-fail-popup"
+      style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; z-index: 30000; background: rgba(0,0,0,0.85); flex-direction: column; align-items: center; justify-content: center;">
+      <h2 style="color: #ff4444; margin-bottom: 20px;">Calibration Failed</h2>
+      <p style="color: #ddd; text-align: center; margin-bottom: 30px; max-width: 80%;">
+        Calibration timed out or failed.<br>Retry for better accuracy?
+      </p>
+      <div style="display: flex; gap: 20px;">
+        <button id="btn-cal-retry" class="btn-primary">Retry</button>
+        <button id="btn-cal-skip" class="btn-primary">Skip</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 0.5: RIFT INTRO (Villain Attack) -->
+    <section id="screen-rift-intro" class="screen">
+      <div id="rift-villain-container">
+        <h2 style="color: #ff4444; font-family: 'Creepster', cursive; margin-bottom: 10px; text-shadow: 0 0 10px #f00;">
+          Rift Detected!</h2>
+        <div id="rift-villain-speech"></div>
+        <img src="./ink_shadow_boss.png" class="rift-villain-img" alt="Villain">
+      </div>
+      <div id="rift-text-container">
+        <img src="./Book_Alice.png" id="rift-book-image" class="rift-book-img" alt="Alice's Adventures in Wonderland">
+      </div>
+      <div id="meteor-layer" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+      </div>
+      <div id="rift-story-overlay"></div>
+    </section>
+
+    <!-- SCREEN 1: WORD FORGE (Vocab) -->
+    <section id="screen-wpm" class="screen" style="padding-top: 100px;">
+      <div style="text-align: center; margin-bottom: 15px;">
+        <h2 style="color: var(--primary-accent); margin-bottom: 10px;">Reading Velocity</h2>
+        <p style="color: #bbb; margin-bottom: 2px;">Select your comfortable reading speed.</p>
+        <p style="color: #777; font-size: 0.8rem;">(WPM: Words Per Minute)</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 320px;">
+        <!-- Novice: Cyan (Mystical/Beginner) -->
+        <button class="btn-secondary wpm-btn" data-wpm="100"
+          style="padding: 20px; text-align: left; background: linear-gradient(90deg, rgba(0, 229, 255, 0.05), transparent); border: 1px solid rgba(0, 229, 255, 0.3); color: #00e5ff; transition: all 0.3s; box-shadow: 0 0 10px rgba(0, 229, 255, 0.05);">
+          <span style="display:flex; justify-content: space-between; align-items: center;">
+            <span
+              style="font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: bold; text-shadow: 0 0 5px rgba(0, 229, 255, 0.4);">Novice</span>
+            <span style="font-size: 0.9rem; opacity: 0.7; letter-spacing: 1px;">100 WPM</span>
+          </span>
+          <span style="display:block; font-size: 0.8rem; color: #888; margin-top: 5px;">Careful & Deliberate</span>
+          <!-- WPM Preview Animation -->
+          <div class="wpm-anim-box" data-wpm="100"
+            style="margin-top: 10px; height: 1.5em; display: flex; align-items: center; justify-content: flex-start; gap: 5px; font-family: 'Crimson Text', serif; font-size: 1rem; color: #ccc;">
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.2s;">Reading</span>
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.2s;">is</span>
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.2s;">Power</span>
+          </div>
+        </button>
+
+        <!-- Apprentice: Amethyst (Magic/Intermediate) -->
+        <button class="btn-secondary wpm-btn" data-wpm="200"
+          style="padding: 20px; text-align: left; background: linear-gradient(90deg, rgba(213, 0, 249, 0.05), transparent); border: 1px solid rgba(213, 0, 249, 0.3); color: #e040fb; transition: all 0.3s; box-shadow: 0 0 10px rgba(213, 0, 249, 0.05);">
+          <span style="display:flex; justify-content: space-between; align-items: center;">
+            <span
+              style="font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: bold; text-shadow: 0 0 5px rgba(213, 0, 249, 0.4);">Apprentice</span>
+            <span style="font-size: 0.9rem; opacity: 0.7; letter-spacing: 1px;">200 WPM</span>
+          </span>
+          <span style="display:block; font-size: 0.8rem; color: #888; margin-top: 5px;">Standard Reader</span>
+          <!-- WPM Preview Animation -->
+          <div class="wpm-anim-box" data-wpm="200"
+            style="margin-top: 10px; height: 1.5em; display: flex; align-items: center; justify-content: flex-start; gap: 5px; font-family: 'Crimson Text', serif; font-size: 1rem; color: #ccc;">
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.1s;">Reading</span>
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.1s;">is</span>
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.1s;">Power</span>
+          </div>
+        </button>
+
+        <!-- Master: Gold (Legendary/Fast) -->
+        <button class="btn-secondary wpm-btn" data-wpm="300"
+          style="padding: 20px; text-align: left; background: linear-gradient(90deg, rgba(255, 215, 0, 0.05), transparent); border: 1px solid rgba(255, 215, 0, 0.3); color: #ffd700; transition: all 0.3s; box-shadow: 0 0 10px rgba(255, 215, 0, 0.05);">
+          <span style="display:flex; justify-content: space-between; align-items: center;">
+            <span
+              style="font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: bold; text-shadow: 0 0 5px rgba(255, 215, 0, 0.4);">Master</span>
+            <span style="font-size: 0.9rem; opacity: 0.7; letter-spacing: 1px;">300 WPM</span>
+          </span>
+          <span style="display:block; font-size: 0.8rem; color: #888; margin-top: 5px;">Swift & Precise</span>
+          <!-- WPM Preview Animation -->
+          <div class="wpm-anim-box" data-wpm="300"
+            style="margin-top: 10px; height: 1.5em; display: flex; align-items: center; justify-content: flex-start; gap: 5px; font-family: 'Crimson Text', serif; font-size: 1rem; color: #ccc;">
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.1s;">Reading</span>
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.1s;">is</span>
+            <span class="wpm-word" style="opacity: 0.2; transition: opacity 0.1s;">Power</span>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- SCREEN 1: WORD FORGE (Vocab) -->
+    <section id="screen-word" class="screen">
+      <div style="text-align: center; margin-bottom: 10px; color: var(--primary-accent);">
+        WORD FORGE (1/3)
+      </div>
+
+      <div class="word-card">
+        <div class="word-image-placeholder">
+          [Magic Image Placeholder]
+        </div>
+        <h2 class="word-title" id="vocab-word">Luminous</h2>
+        <p style="color: #bbb; margin-bottom: 20px;">"The <b>luminous</b> mushroom lit up the dark cave."</p>
+
+        <div id="vocab-options">
+          <button class="option-btn" data-index="0">A. Very heavy and dark</button>
+          <button class="option-btn" data-index="1">B. Full of light / Shining</button>
+          <button class="option-btn" data-index="2">C. Related to the moon</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 1.5: THE WHITE RABBIT (Eye Tracking Demo) -->
+    <section id="screen-owl" class="screen">
+      <h2 style="color: #f0c420; text-shadow: 0 0 10px #f0c420; font-family: 'Cinzel', serif;">Misty the Chronicler</h2>
+      <p style="color: #aaa; margin-bottom: 40px;">"Oh dear! Oh dear! I shall be too late!" - Follow the Rabbit's
+        gaze...</p>
+
+      <div class="rabbit-container">
+        <!-- Rabbit character image -->
+        <div class="rabbit-image"></div>
+
+        <!-- Eye tracking overlays -->
+        <div class="rabbit-eye-overlay left-eye-overlay">
+          <div class="pupil" id="eye-left-pupil"></div>
+        </div>
+        <div class="rabbit-eye-overlay right-eye-overlay">
+          <div class="pupil" id="eye-right-pupil"></div>
+        </div>
+      </div>
+
+      <button id="btn-owl-start" class="btn-primary" style="margin-top: 60px;">
+        Follow the Rabbit
+      </button>
+    </section>
+
+    <!-- SCREEN 2: READING RIFT (Eye Tracking Gameplay) -->
+    <section id="screen-read" class="screen">
+      <div style="margin-bottom: 10px; text-align: center;">
+        <span style="background: #333; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem;">
+          Chapter 1: Down the Rabbit-Hole
+        </span>
+      </div>
+
+      <div id="book-content" class="book-container"
+        style="height: 75vh; overflow: hidden; padding: 20px; border: 1px solid #444; border-radius: 8px; background: rgba(0,0,0,0.3); position: relative; width: 100%;">
+        <!-- [FIX-iOS] Static <p> tags removed.
+             prepareDynamic() in TextRendererV2.js wipes this container via innerHTML=''''
+             immediately on game start, so these tags were parsed and rendered by the browser
+             only to be discarded. Removing them saves initial DOM construction overhead. -->
+      </div>
+
+      <!-- Footer Info: Removed WPM (Moved to Top HUD) -->
+      <div style="position: absolute; bottom: 10px; width: 100%; text-align: center; left: 0;">
+        <div id="gaze-feedback-label" style="font-size: 1rem; font-weight: bold; height: 1.5em; display:none;"></div>
+      </div>
+
+      <button id="btn-confront-villain" class="btn-primary"
+        style="display: none; margin-top: 30px; background: #ff4444; width: 100%;">
+        Confront the Ink Shadow
+      </button>
+    </section>
+
+    <!-- SCREEN 3: BOSS BATTLE (Comprehension) -->
+    <section id="screen-boss" class="screen">
+      <img src="./ink_shadow_boss.png" class="villain-img" alt="The Ink Shadow"
+        style="width: 200px; margin-bottom: 20px;">
+      <div class="boss-dialogue">
+        <h3 style="margin: 0 0 10px 0; color: #f00;">The Ink Shadow asks:</h3>
+        <p id="boss-question">"Why did Alice follow the Rabbit?"</p>
+      </div>
+      <div id="boss-options" class="quiz-options" style="width: 100%; max-width: 500px; margin-top: 20px;">
+        <!-- Options will be injected -->
+      </div>
+    </section>
+
+    <!-- SCREEN 3.5: FINAL BOSS (Comprehension Challenge) -> REPLACED WITH ALICE BATTLE VISUAL -->
+    <section id="screen-final-boss" class="screen alice-battle-mode"
+      style="background: linear-gradient(135deg, #000 0%, #2a0a38 100%); flex-direction: column; display:none;">
+
+      <!-- INJECTED ALICE BATTLE STRUCTURE (VISUAL ONLY) -->
+      <div id="alice-game-ui"
+        style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 10px; box-sizing: border-box;">
+
+        <!-- Top Entity Area (RED QUEEN) -->
+        <div class="entity-area villain"
+          style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+          <div class="avatar" id="villain-avatar" style="font-size: 3rem;">👑</div>
+          <div class="card-container" style="display: flex; gap: 5px; justify-content: center; margin: 5px 0;">
+            <!-- Static Cards (No Click) -->
+            <div class="card"
+              style="border: 1px solid #444; padding: 5px; background: #222; text-align: center; width: 60px;">
+              <i style="color:red;">♥️</i><span>QUEEN</span>
+              <div class="power-val" style="color:#aaa;">100</div>
+            </div>
+            <div class="card"
+              style="border: 1px solid #444; padding: 5px; background: #222; text-align: center; width: 60px;">
+              <i style="color:red;">♠️</i><span>KING</span>
+              <div class="power-val" style="color:#aaa;">60</div>
+            </div>
+            <div class="card"
+              style="border: 1px solid #444; padding: 5px; background: #222; text-align: center; width: 60px;">
+              <i style="color:red;">♣️</i><span>JOKER</span>
+              <div class="power-val" style="color:#aaa;">40</div>
+            </div>
+          </div>
+
+          <!-- Health Bar -->
+          <div class="status-bar"
+            style="width: 200px; height: 10px; background: #555; border-radius: 5px; overflow: hidden; margin-top: 5px;">
+            <div class="hp" style="width: 100%; height: 100%; background: #ff4d4d;"></div>
+          </div>
+          <div class="entity-name" style="color: #ff4d4d; font-weight: bold; margin-top: 5px;">RED QUEEN</div>
+        </div>
+
+        <!-- Middle Text -->
+        <div class="middle-text" id="alice-text"
+          style="text-align: center; color: #ccc; font-family: 'Crimson Text', serif; font-size: 1.1rem; padding: 20px; font-style: italic;">
+          "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once
+          or twice she had peeped into the book her sister was reading..."
+        </div>
+
+        <!-- Bottom Entity Area (WARDEN ALICE) -->
+        <div class="entity-area warden"
+          style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+          <div class="entity-name" style="color: #4da6ff; font-weight: bold; margin-bottom: 5px;">WARDEN ALICE</div>
+
+          <!-- Health Bar -->
+          <div class="status-bar"
+            style="width: 200px; height: 10px; background: #555; border-radius: 5px; overflow: hidden; margin-bottom: 5px;">
+            <div class="hp" style="width: 100%; height: 100%; background: #4da6ff;"></div>
+          </div>
+
+          <div class="card-container" style="display: flex; gap: 5px; justify-content: center; margin: 5px 0;">
+            <!-- Static Cards (No Click) -->
+            <div class="card"
+              style="border: 1px solid #444; padding: 5px; background: #222; text-align: center; width: 60px; cursor: default;">
+              <i style="color:cyan;">✒️</i><span>INK</span>
+              <div class="power-val" style="color:#aaa;">190</div>
+            </div>
+            <div class="card"
+              style="border: 1px solid #444; padding: 5px; background: #222; text-align: center; width: 60px; cursor: default;">
+              <i style="color:cyan;">🌀</i><span>RUNE</span>
+              <div class="power-val" style="color:#aaa;">30</div>
+            </div>
+            <div class="card"
+              style="border: 1px solid #444; padding: 5px; background: #222; text-align: center; width: 60px; cursor: default;">
+              <i style="color:cyan;">💎</i><span>GEM</span>
+              <div class="power-val" style="color:#aaa;">50</div>
+            </div>
+          </div>
+          <div class="avatar" id="warden-avatar" style="font-size: 3rem;">👧</div>
+        </div>
+
+        <div class="battle-log" id="al-log"
+          style="text-align: center; color: #888; font-size: 0.8rem; margin-top: 10px;">Battle started...</div>
+      </div>
+
+      <!-- Click to Win Trigger Overlay (Functionality Placeholder) -->
+      <div id="dummy-overlay-removed"
+        style="position:absolute; top:0; left:0; width:100%; height:100%; z-index: 1000; cursor: pointer;"
+        title="Click to Proceed (Dummy Mode)"></div>
+
+    </section>
+
+    <!-- SCREEN 4: FINAL BOSS / VICTORY -->
+    <section id="screen-win" class="screen">
+      <h1 style="color: #ff4444; font-size: 3rem; text-shadow: 0 0 20px #ff0000;">THE FINAL INK SHADOW</h1>
+      <p style="font-size: 1.2rem; color: #ddd;">You have faced the trials. The Rift is nearly sealed.</p>
+
+      <div style="font-size: 3rem; margin: 30px;">💎 +150</div>
+
+      <p style="color: gold; margin-bottom: 30px;">"You are a true Warden of Words."</p>
+
+      <button id="btn-review" class="btn-primary">Review Reading</button>
+    </section>
+
+    <!-- SCREEN 5: VICTORY / STATS REVIEW -->
+    <section id="screen-review" class="screen"
+      style="justify-content: flex-start; padding-top: 60px; overflow-y: auto;">
+
+      <!-- Victory Header -->
+      <div style="text-align: center; margin-bottom: 30px; animation: popIn 0.5s ease-out;">
+        <h1
+          style="font-family: 'Cinzel', serif; font-size: 2.5rem; color: #ffd700; text-shadow: 0 0 20px rgba(255, 215, 0, 0.6); margin: 0;">
+          VICTORY!
+        </h1>
+        <p style="color: #aaa; letter-spacing: 2px; font-size: 0.9rem;">Rift Sealed Successfully</p>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <!-- Stat 1: WPM -->
+        <div class="stat-card" style="border-color: #00e5ff;">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-value" id="stat-wpm">0</div>
+          <div class="stat-label">Avg. WPM</div>
+        </div>
+
+        <!-- Stat 2: Ink -->
+        <div class="stat-card" style="border-color: #8b2fc9;">
+          <div class="stat-icon">🖋️</div>
+          <div class="stat-value" id="stat-ink">0</div>
+          <div class="stat-label">Ink Collected</div>
+        </div>
+
+        <!-- Stat 3: Gems -->
+        <div class="stat-card" style="border-color: #ff4444;">
+          <div class="stat-icon">💎</div>
+          <div class="stat-value" id="stat-gems">0</div>
+          <div class="stat-label">Gems Earned</div>
+        </div>
+
+        <!-- Stat 4: Words -->
+        <div class="stat-card" style="border-color: #ffd700;">
+          <div class="stat-icon">📜</div>
+          <div class="stat-value" id="stat-words">0</div>
+          <div class="stat-label">Words Mastered</div>
+        </div>
+      </div>
+
+      <!-- Accordion Text Log -->
+      <div id="full-text-container" style="width: 90%; max-width: 600px; margin-bottom: 30px;">
+        <!-- Injected via JS -->
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex; gap:15px; margin-top: 10px; z-index: 10;">
+        <button id="btn-share-summary" class="btn-primary">Share Victory</button>
+        <button id="btn-export" class="btn-primary" style="background:#444;">Export Data</button>
+      </div>
+    </section>
+
+    <!-- SCREEN 6: SUMMARY & SHARE -->
+    <section id="screen-share" class="screen">
+      <h2 style="color: #f0c420; margin-bottom: 20px;">Reading Complete</h2>
+      <div class="share-card"
+        style="background: #fff; padding: 10px; border-radius: 10px; max-width: 400px; margin-bottom: 20px;">
+        <img src="./alice_summary_card.png" alt="Summary Card" style="width: 100%; border-radius: 5px; display: block;">
+      </div>
+      <div style="display: flex; gap: 15px;">
+        <button id="btn-share-final" class="btn-primary">Share to Friends</button>
+        <button id="btn-home" class="btn-primary" style="background: #555;">Home</button>
+      </div>
+    </section>
+
+
+
+    <!-- NEW SCENE 2: MISSION ACCOMPLISHED (Score Report) -->
+    <section id="screen-new-score" class="screen"
+      style="text-align: center; background: radial-gradient(circle at center, #1a103c 0%, #000 90%); height: 100vh; overflow: hidden; padding: 10px 20px; box-sizing: border-box; display: none; flex-direction: column;">
+
+      <!-- HEADER -->
+      <h2
+        style="color: #ffd700; margin: 0 0 10px 0; font-family: 'Cinzel', serif; font-size: 1.8rem; text-shadow: 0 0 20px gold; font-weight: bold; letter-spacing: 2px; flex: 0 0 auto;">
+        MISSION REPORT</h2>
+
+      <!-- GROUP A: STATS & RESOURCES (Flex 4) -->
+      <div
+        style="flex: 4; display: flex; flex-direction: column; justify-content: center; gap: 10px; margin-bottom: 10px;">
+
+        <!-- ROW 1: STATS -->
+        <div id="report-stats-row"
+          style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; opacity: 0; transform: translateY(20px); transition: all 0.8s ease-out;">
+          <!-- WPM -->
+          <div
+            style="background: rgba(0,229,255,0.1); padding: 12px; border-radius: 12px; border: 1px solid rgba(0, 229, 255, 0.4); display: flex; flex-direction: column; justify-content: center;">
+            <div style="color: #888; font-size: 0.8rem; margin-bottom: 3px;">SPEED</div>
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+              <span id="report-wpm"
+                style="font-size: 1.8rem; font-weight: bold; color: #00e5ff; line-height: 1;">0</span>
+              <div style="font-size: 0.6rem; color: rgba(0, 229, 255, 0.6); margin-top: 2px;">Words Per Minute</div>
+            </div>
+          </div>
+          <!-- RANK -->
+          <div
+            style="background: rgba(255,215,0,0.1); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,215,0,0.4); display: flex; flex-direction: column; justify-content: center;">
+            <div style="color: #888; font-size: 0.8rem; margin-bottom: 3px;">RANK</div>
+            <div id="report-rank-text" style="font-size: 1.8rem; font-weight: bold; color: gold;">Novice</div>
+          </div>
+        </div>
+
+        <!-- ROW 2: RESOURCES (Expanded Size) -->
+        <div id="report-resource-row"
+          style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; flex-grow: 1; opacity: 0; transform: translateY(20px); transition: all 0.8s ease-out;">
+          <!-- INK -->
+          <div
+            style="background: rgba(255,255,255,0.05); padding: 5px; border-radius: 12px; display:flex; flex-direction:column; align-items:center; justify-content: center;">
+            <img src="ink.png" style="width:53px; height:auto; margin-bottom:0px;">
+            <div id="report-ink-score" style="font-size:1.8rem; font-weight:bold; color:#00e5ff;">0</div>
+          </div>
+          <!-- RUNE -->
+          <div
+            style="background: rgba(255,255,255,0.05); padding: 5px; border-radius: 12px; display:flex; flex-direction:column; align-items:center; justify-content: center;">
+            <img src="rune.png" style="width:53px; height:auto; margin-bottom:0px;">
+            <div id="report-rune-score" style="font-size:1.8rem; font-weight:bold; color:#00ff00;">0</div>
+          </div>
+          <!-- GEM -->
+          <div
+            style="background: rgba(255,255,255,0.05); padding: 5px; border-radius: 12px; display:flex; flex-direction:column; align-items:center; justify-content: center;">
+            <img src="gem.png" style="width:53px; height:auto; margin-bottom:0px;">
+            <div id="report-gem-score" style="font-size:1.8rem; font-weight:bold; color:#d500f9;">0</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- GROUP B: REWARD (Golden Key) (Flex 6) -->
+      <div id="reward-section"
+        style="flex: 6; min-height: 0; background: linear-gradient(180deg, rgba(255,215,0,0.05) 0%, rgba(0,0,0,0.8) 100%); border: 1px solid rgba(255,215,0,0.2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transform: translateY(50px); transition: all 1s cubic-bezier(0.34, 1.56, 0.64, 1);">
+
+        <style>
+          @keyframes keyFloating {
+            0% {
+              transform: translateY(0);
+              filter: drop-shadow(0 0 15px gold);
+            }
+
+            100% {
+              transform: translateY(-10px);
+              filter: drop-shadow(0 0 25px gold);
+            }
+          }
+        </style>
+        <div
+          style="display:flex; flex-direction: column; justify-content:center; align-items:center; margin-bottom:15px; margin-top: 0px; text-align: center;">
+          <img src="goldenkey.png"
+            style="width: 110px; height: auto; margin-bottom: 5px; animation: keyFloating 2s ease-in-out infinite alternate;">
+          <div>
+            <div
+              style="font-family: 'Cinzel', serif; color: #ffd700; font-size: 1.3rem; font-weight: bold; margin-bottom: 2px;">
+              GOLDEN KEY
+            </div>
+            <div style="font-size: 0.9rem; color: #ccc; max-width: 300px; line-height: 1.2;">
+              Unlock your Eye-Tracking data<br>and Secret Chapter.
+            </div>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <div id="bind-form" style="width: 100%; max-width: 350px;">
+          <input type="email" id="warden-email" placeholder="Enter Email to Claim Reward"
+            style="width: 100%; padding: 15px; margin-bottom: 15px; background: rgba(255,255,255,0.05); border: 1px solid #555; color: #fff; border-radius: 8px; text-align: center; font-size: 1.1rem; box-sizing: border-box;">
+
+          <button id="btn-claim-reward"
+            style="width:100%; height: 55px; background:#ffd700; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size: 1.2rem; box-shadow: 0 0 20px rgba(255,215,0,0.4); transition: transform 0.1s; color: #333;">
+            CLAIM REWARD
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- NEW SCENE 3: SIGN UP (Lead Gen) -->
+    <section id="screen-new-signup" class="screen"
+      style="text-align: center; background: linear-gradient(135deg, #0f0c15 0%, #1a103c 100%);">
+
+      <div
+        style="max-width: 500px; margin: 0 auto; background: rgba(255,255,255,0.03); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);">
+        <h1 style="color: #00e5ff; margin-bottom: 10px; font-family: 'Cinzel', serif;">BECOME A LEGEND</h1>
+        <p style="color: #aaa; margin-bottom: 30px;">Save your progress and compete globally.</p>
+
+        <input type="email" placeholder="Enter your email"
+          style="width: 100%; padding: 15px; margin-bottom: 20px; background: rgba(0,0,0,0.5); border: 1px solid #444; color: #fff; border-radius: 8px; font-size: 1rem;">
+
+        <label
+          style="display: flex; align-items: center; gap: 10px; color: #888; margin-bottom: 30px; font-size: 0.9rem; text-align: left;">
+          <input type="checkbox" checked style="accent-color: #00e5ff;">
+          I agree to receive the Warden's chronicles (Newsletter)
+        </label>
+
+        <button id="btn-signup-now" class="btn-primary" style="width: 100%; margin-bottom: 15px; font-size: 1.2rem;">
+          Sign Up Now
+        </button>
+        <button id="btn-signup-skip"
+          style="background: transparent; border: none; color: #666; cursor: pointer; text-decoration: underline;">
+          Skip for now
+        </button>
+      </div>
+    </section>
+
+    <!-- NEW SCENE 4: SOCIAL SHARE (Viral Loop) -->
+    <section id="screen-new-share" class="screen"
+      style="text-align: center; background: radial-gradient(circle, #2a0a38 0%, #000 90%);">
+
+      <h1 style="color: #e040fb; margin-bottom: 20px; font-family: 'Cinzel', serif; font-size: 2.5rem;">SHARE GLORY
+      </h1>
+      <p style="color: #ccc; margin-bottom: 40px;">Recruit more Wardens to seal the Rift.</p>
+
+      <div class="share-card-preview"
+        style="background: #fff; width: 300px; height: 160px; margin: 0 auto 40px auto; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #333; overflow: hidden; position: relative; box-shadow: 0 0 20px rgba(224, 64, 251, 0.4);">
+        <!-- Simulated Image -->
+        <img src="./alice_summary_card.png" alt="Card" style="width: 100%; height: 100%; object-fit: cover;">
+        <div
+          style="position: absolute; bottom: 10px; left: 10px; font-weight: bold; color: #fff; text-shadow: 0 0 5px #000; font-family: 'Outfit', sans-serif;">
+          Rank: S-Class</div>
+      </div>
+
+      <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 50px;">
+        <!-- Kakao -->
+        <button
+          style="width: 50px; height: 50px; border-radius: 50%; border: none; background: #fee500; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;"
+          onclick="navigator.clipboard.writeText('https://selfso2014.github.io/TheBookWardens_MVP/'); alert('Link Copied to Clipboard! (KakaoTalk share not configured)');"
+          onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#3c1e1e">
+            <path
+              d="M12 3C6.48 3 2 6.48 2 10.77C2 13.54 3.78 16.02 6.64 17.38C6.64 17.38 6.2 19.38 6.07 20.08C5.97 20.64 6.57 20.89 6.96 20.52C8.38 19.18 10.3 17.3 10.3 17.3C10.86 17.38 11.42 17.43 12 17.43C17.52 17.43 22 13.95 22 9.66C22 5.37 17.52 3 12 3Z" />
+          </svg>
+        </button>
+
+        <!-- Facebook -->
+        <button
+          style="width: 50px; height: 50px; border-radius: 50%; border: none; background: #1877f2; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;"
+          onclick="window.open('https://www.facebook.com/sharer/sharer.php?u=https://selfso2014.github.io/TheBookWardens_MVP/', '_blank')"
+          onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+            <path
+              d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+          </svg>
+        </button>
+
+        <!-- X (Twitter) -->
+        <button
+          style="width: 50px; height: 50px; border-radius: 50%; border: none; background: #000; border: 1px solid #333; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;"
+          onclick="window.open('https://twitter.com/intent/tweet?text=I just saved the Story World! Can you? Play The Book Wardens: https://selfso2014.github.io/TheBookWardens_MVP/', '_blank')"
+          onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+            <path
+              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </button>
+
+        <!-- Instagram -->
+        <button
+          style="width: 50px; height: 50px; border-radius: 50%; border: none; background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;"
+          onclick="navigator.clipboard.writeText('https://selfso2014.github.io/TheBookWardens_MVP/'); alert('Link Copied to Clipboard! (Post this on Instagram)');"
+          onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+            <path
+              d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.069-4.85.069-3.204 0-3.584-.012-4.849-.069-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- New Copy Link Button -->
+      <button
+        onclick="navigator.clipboard.writeText('https://selfso2014.github.io/TheBookWardens_MVP/'); alert('Game Link Copied!');"
+        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.1)'"
+        style="background: rgba(255,255,255,0.1); border: 1px solid #777; color: #fff; padding: 12px 25px; border-radius: 30px; cursor: pointer; font-size: 1rem; margin-bottom: 40px; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s;">
+        <span style="font-size: 1.2rem;">🔗</span> Copy Game Link
+      </button>
+
+      <button id="btn-return-lobby" class="btn-primary">
+        Return to Lobby
+      </button>
+    </section>
+
+  </div>
+
+  <!-- SDK Loading Modal -->
+  <div id="sdk-loading-modal" style="display: none; flex-direction: column;">
+    <div class="sdk-loading-card">
+      <div class="sdk-loading-title">Waking Up Magic Eye...</div>
+      <div class="sdk-progress-container">
+        <div class="sdk-progress-bar"></div>
+      </div>
+      <div class="sdk-status-text">Getting Ready...</div>
+      <div style="margin-top:20px; font-size: 0.8rem; color: #666;">Please allow permissions if prompted.</div>
+    </div>
+  </div>
+
+  <!-- Villain Modal (Moved here) -->
+  <div id="villain-modal">
+    <div class="villain-card">
+
+      <!-- Reward Container -->
+      <div id="reward-container"
+        style="display:none; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 200px;">
+        <div style="font-size: 3rem; margin-bottom: 15px;">🖋️</div>
+        <h2
+          style="color: #f0c420; margin: 0 0 10px 0; font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px;">
+          Ink Collected</h2>
+        <div id="reward-ink-value"
+          style="font-size: 3.5rem; font-weight: bold; color: #fff; text-shadow: 0 0 15px #f0c420; font-family: 'Cinzel', serif;">
+          +0</div>
+      </div>
+
+      <!-- Quiz Container -->
+      <div id="quiz-container">
+        <img src="./ink_shadow_boss.png" class="villain-img" alt="The Timekeeper">
+        <h2 class="villain-title">The Timekeeper</h2>
+        <div id="line-detect-result" style="color: #0f0; margin-bottom: 10px; font-weight: bold;"></div>
+        <p id="quiz-text" class="quiz-question">...</p>
+        <div id="quiz-options" class="quiz-options"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SCREEN: Alice Battlefield (Reordered Conflict) -->
+  <div id="screen-alice-battle" class="screen"
+    style="display:none; flex-direction: column; overflow: hidden; background: #000; width: 100%; height: 100vh; align-items: center; justify-content: space-between;">
+    <canvas id="alice-canvas"
+      style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none;"></canvas>
+
+    <div id="alice-game-ui"
+      style="position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
+
+      <!-- Top Entity Area (RED DRAGON VILLAIN BACKGROUND) -->
+      <div class="entity-area villain"
+        style="position: relative; width: 100%; height: 34vh; min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 0vh; margin-top: -1vh; overflow: hidden;">
+
+        <!-- Villain Background Image -->
+        <div id="villain-visual-container"
+          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; display: flex; justify-content: center; align-items: flex-start; padding-top: 2vh;">
+          <img id="villain-bg-img" src="finalredvillain.png" alt="Red Villain"
+            style="width: auto; height: 95%; max-width: 95%; object-fit: contain; object-position: center top; mask-image: linear-gradient(to bottom, black 85%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%); opacity: 0.9;">
+        </div>
+
+
+        <!-- Villain Cards Overlay (Lowered to show face) -->
+        <div class="card-container"
+          style="position: relative; z-index: 2; margin-top: 18vh; display: flex; gap: 10px; justify-content: center;">
+          <div id="v-card-queen" class="card" style="border-color: #ff4444; background: rgba(40, 0, 0, 0.8);">
+            <i style="color:red;">♥️</i><span>QUEEN</span>
+            <div class="power-val" id="v-val-queen">100</div>
+          </div>
+          <div id="v-card-king" class="card" style="border-color: #ff4444; background: rgba(40, 0, 0, 0.8);">
+            <i style="color:red;">♠️</i><span>KING</span>
+            <div class="power-val" id="v-val-king">60</div>
+          </div>
+          <div id="v-card-joker" class="card" style="border-color: #ff4444; background: rgba(40, 0, 0, 0.8);">
+            <i style="color:red;">♣️</i><span>JOKER</span>
+            <div class="power-val" id="v-val-joker">40</div>
+          </div>
+        </div>
+
+        <!-- Villain HP Bar Overlay -->
+        <div class="status-bar"
+          style="position: absolute; bottom: 10px; width: 60%; height: 6px; background: #333; border: 1px solid #555; z-index: 2;">
+          <div class="hp" id="villain-hp" style="background: #ff4d4d; width: 100%; height: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- Middle Area: Rift Textfield -->
+      <div id="rift-textfield-container"
+        style="flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 10px; position: relative;">
+
+        <div class="rift-textfield"
+          style="border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(0, 0, 0, 0.4); padding: 10px 15px; border-radius: 6px; max-width: 850px; width: 98%; max-height: 170px; overflow: hidden; position: relative; backdrop-filter: blur(2px);">
+
+          <div
+            style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #000; padding: 0 10px; font-size: 0.8rem; color: #aaa; border: 1px solid #444; border-radius: 4px; white-space: nowrap;">
+            Rift Textfield
+          </div>
+
+          <div class="middle-text" id="alice-text"
+            style="text-align: center; color: #eee; font-family: 'Crimson Text', serif; font-size: 1.0rem; line-height: 1.6; font-style: italic; max-height: 120px; overflow: hidden;">
+            "For it flashed across her mind that she had never before seen a rabbit with either a waistcoat-pocket, or a
+            watch to take out of it. Burning with curiosity, she ran across the field after it, and was just in time to
+            see it pop down a large rabbit-hole under the hedge..."
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Entity Area (WARDEN CONTROLS) -->
+      <div class="entity-area warden"
+        style="width: 100%; height: 38vh; min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 110px; background: linear-gradient(to top, rgba(0,0,20,0.8), transparent);">
+
+        <div class="battle-log" id="al-log"
+          style="text-align: center; color: #888; font-size: 0.8rem; margin-bottom: 5px; min-height: 1.2em;">
+          Battle started...
+        </div>
+
+        <!-- Warden HP -->
+        <div class="status-bar"
+          style="width: 200px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 15px; border: 1px solid #444;">
+          <div class="hp" id="warden-hp" style="background: #4da6ff; width: 100%; height: 100%;"></div>
+        </div>
+
+        <!-- Warden Cards (No Avatar) -->
+        <div class="card-container" style="display: flex; gap: 15px; justify-content: center;">
+          <div id="card-ink" class="card"
+            style="cursor: pointer; border-radius: 12px; border: 1px solid #b300ff; background: rgba(20, 0, 40, 0.85); box-shadow: 0 4px 12px rgba(179, 0, 255, 0.3); transition: transform 0.1s, box-shadow 0.1s;">
+            <img src="./ink.png"
+              style="width: 30px; height: 30px; margin-bottom: 5px; filter: drop-shadow(0 0 5px cyan);">
+            <span>INK</span>
+            <div class="power-val" id="val-ink">190</div>
+          </div>
+          <div id="card-rune" class="card"
+            style="cursor: pointer; border-radius: 12px; border: 1px solid #00f2ff; background: rgba(0, 40, 40, 0.85); box-shadow: 0 4px 12px rgba(0, 242, 255, 0.3); transition: transform 0.1s, box-shadow 0.1s;">
+            <img src="./rune.png"
+              style="width: 30px; height: 30px; margin-bottom: 5px; filter: drop-shadow(0 0 5px cyan);">
+            <span>RUNE</span>
+            <div class="power-val" id="val-rune">30</div>
+          </div>
+          <div id="card-gem" class="card"
+            style="cursor: pointer; border-radius: 12px; border: 1px solid #ffffff; background: rgba(40, 40, 50, 0.85); box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3); transition: transform 0.1s, box-shadow 0.1s;">
+            <img src="./gem.png"
+              style="width: 30px; height: 30px; margin-bottom: 5px; filter: drop-shadow(0 0 5px cyan);">
+            <span>GEM</span>
+            <div class="power-val" id="val-gem">50</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Final Result Overlay -->
+    <div id="alice-final-screen"
+      style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 1s;">
+      <div id="result-header" class="result-header"
+        style="font-family: 'Cinzel', serif; font-size: 3rem; margin-bottom: 20px;">RESULT</div>
+      <div id="story-display" class="story-container"
+        style="max-width: 600px; text-align: center; color: #ddd; font-family: serif; font-size: 1.2rem; line-height: 1.6; padding: 20px;">
+      </div>
+      <button id="alice-restart-btn"
+        style="margin-top: 30px; padding: 10px 25px; background: transparent; border: 1px solid #555; color: #fff; cursor: pointer; transition: all 0.3s; font-family: 'Cinzel', serif;">
+        Play Again
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Scripts (BookWardens-Lean boot chain) ─────────────────────── -->
+  <!-- SDK_Test 방식: ServiceWorker → SeeSo SDK → 게임 스크립트 순차 로드  -->
+  <!-- COOP/COEP 헤더는 coi-serviceworker.js가 주입 (WASM SharedArrayBuffer) -->
+  <script>
+    (async function boot() {
+      // ── 1. ServiceWorker (COI) 준비 대기 ────────────────────────────
+      // coi-serviceworker.js가 이미 <head>에서 등록했으므로 ready 대기만 함
+      let swReady = false;
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.ready.catch(() => null);
+          swReady = !!reg;
+        } catch (e) { swReady = false; }
+      }
+      console.log('[BOOT] SW ready:', swReady, '| COOP:', self.crossOriginIsolated);
+
+      // ── 2. 스크립트 순차 로더 ────────────────────────────────────────
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = () => reject(new Error('Failed: ' + src));
+          document.head.appendChild(s);
+        });
+      }
+
+      try {
+        // ── 3. 핵심 유틸 ─────────────────
+        await loadScript('./js/memory-logger.js');
+
+        // ── 4. SeeSo SDK ──────────────────
+        // easy-seeso.js: 공식 래퍼 (내부에서 seeso.min.js 로드)
+        await loadScript('./seeso/easy-seeso.js');
+
+        // ── 5. 게임 엔진 모듈 ────────────
+        await loadScript('./js/seeso-manager.js');
+        await loadScript('./js/pang-detector.js');
+        await loadScript('./js/lean-renderer.js');
+
+        // ── 6. 게임 데이터 ───────────────
+        await loadScript('./js/data/story-data.js');
+        await loadScript('./js/data/quiz-data.js');
+        await loadScript('./js/alice-battle-simple.js');
+
+        // ── 7. 메인 앱 ───────────────────
+        await loadScript('./js/app.js');
+
+        console.log('[BOOT] ✅ All scripts loaded');
+      } catch (e) {
+        console.error('[BOOT] ❌', e.message);
+        const el = document.getElementById('status');
+        if (el) el.textContent = '❌ 로드 실패: ' + e.message;
+      }
+    })();
+  </script>
+
+  <!-- 3. Explicit Event Binding for Debug Button (With STANDALONE BATTLE LOGIC) -->
+
+  <!-- CUSTOM SUBMISSION SUCCESS MODAL -->
+  <div id="success-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 50000; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s;">
+    <div
+      style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; border: 2px solid #ffd700; text-align: center; box-shadow: 0 0 30px rgba(255, 215, 0, 0.3); max-width: 400px; width: 90%; transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);">
+      <div style="font-size: 3rem; margin-bottom: 15px;">🎉</div>
+      <h2
+        style="font-family: 'Cinzel', serif; color: #ffd700; margin: 0 0 10px 0; font-size: 1.8rem; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+        ACCESS GRANTED</h2>
+      <p style="color: #ddd; font-size: 1rem; line-height: 1.5; margin-bottom: 25px;">
+        Eye-Tracking data secured.<br>
+        The <strong>Secret Chapter</strong> key has been sent to your email.
+      </p>
+      <button id="btn-modal-confirm"
+        style="background: #ffd700; color: #1a1a2e; border: none; padding: 12px 30px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; font-family: 'Cinzel', serif; transition: all 0.2s;">
+        ENTER THE PORTAL
+      </button>
+    </div>
+  </div>
+</body>
+
+</html>
