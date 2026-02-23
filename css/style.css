@@ -360,9 +360,9 @@ body {
 
 .book-container {
   max-width: 600px;
-  line-height: 2.7;
+  line-height: 1.8;      /* 2.7→1.8: 줄 감지 정확도 향상 (offsetTop 구분 가능) */
   font-family: 'Georgia', serif;
-  font-size: 1.1rem;
+  font-size: 1.2rem;     /* 1.1→1.2rem: 가독성 보완 */
   color: #ccc;
   position: relative;
 }
