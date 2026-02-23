@@ -43,7 +43,7 @@ class LeanRenderer {
             this._lineEls = [];
             this._pangCount = 0;
 
-            // Step 1: 단어 span 임시 렌더 (줄 경계 감지용, DOM 1회 reflow)
+            // Step 1: 단어 span 임시 렌더 (줄 경계 감지용)
             const words = text.trim().split(/\s+/).filter(Boolean);
             words.forEach(word => {
                 const s = document.createElement('span');
@@ -52,27 +52,28 @@ class LeanRenderer {
                 container.appendChild(s);
             });
 
-            // Step 2: 레이아웃 완료 후 줄 감지
-            const _measure = (resolve) => {
+            // Step 2: display:none→flex 전환 후 레이아웃 확정 보장
+            // rAF 2번: 첫 번째는 paint 시작, 두 번째는 레이아웃 확정
+            const _measure = () => {
                 const spans = Array.from(container.querySelectorAll('span'));
-                const lineMap = new Map(); // top(px, rounded) → word 배열
+                const lineMap = new Map();
 
                 spans.forEach(s => {
-                    // getBoundingClientRect().top 사용 (offsetTop보다 신뢰성 높음)
-                    // 소수점 반올림으로 같은 줄 판별
+                    // getBoundingClientRect().top: viewport 기준 절대 좌표
                     const top = Math.round(s.getBoundingClientRect().top);
                     if (!lineMap.has(top)) lineMap.set(top, []);
                     lineMap.get(top).push(s.textContent);
                 });
 
-                // 모든 top이 동일(=렌더링 안 됨)하면 재시도
+                // 모든 top이 동일하면(=레이아웃 미완료) 한 번 더 대기
                 if (lineMap.size <= 1 && spans.length > 5) {
-                    console.warn('[LeanRenderer] All spans have same top — retrying in 300ms');
-                    setTimeout(() => _measure(resolve), 300);
+                    console.warn('[LeanRenderer] Layout not ready, retrying in 200ms');
+                    if (window.MemoryLogger) MemoryLogger.warn('RENDER', 'Layout not ready, retry');
+                    setTimeout(_measure, 200);
                     return;
                 }
 
-                // Step 3: 줄 div 재구성 (.text-line)
+                // Step 3: 줄 div 재구성
                 container.innerHTML = '';
                 const sortedTops = Array.from(lineMap.keys()).sort((a, b) => a - b);
 
@@ -84,7 +85,7 @@ class LeanRenderer {
                     return div;
                 });
 
-                // Step 4: 각 줄 center Y 측정 → Float32Array (lockLayout)
+                // Step 4: 줄 center Y 측정
                 const n = this._lineEls.length;
                 const lineYs = new Float32Array(n);
                 let totalH = 0;
@@ -98,14 +99,18 @@ class LeanRenderer {
                 const avgH = n > 0 ? totalH / n : 40;
                 const lineHalfH = avgH * 0.55;
 
+                if (window.MemoryLogger) MemoryLogger.info('RENDER', `${n} lines | avgH=${avgH.toFixed(1)}px`);
                 console.log(`[LeanRenderer] ${n} lines | avgH=${avgH.toFixed(1)} | halfH=${lineHalfH.toFixed(1)}`);
-                if (window.MemoryLogger) MemoryLogger.info('RENDER', `${n} lines | avgH=${avgH.toFixed(1)}px | halfH=${lineHalfH.toFixed(1)}px`);
 
                 resolve({ lineYs, lineHalfH, lineCount: n });
             };
 
-            // 300ms: iOS 레이아웃 + CSS transition 완료 보장
-            setTimeout(() => _measure(resolve), 300);
+            // rAF x2 → setTimeout 200ms: display:flex 레이아웃 완전 확정 보장
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setTimeout(_measure, 200);
+                });
+            });
         });
     }
 
