@@ -208,6 +208,16 @@ class SeesoManager {
         MemoryLogger.info('TRACK', 'stopTracking called');
         this._seeso.stopTracking();
         this._tracking = false;
+
+        // iOS 메모리 해제: 카메라 stream track 명시적 종료
+        // SDK가 내부적으로 ImageBitmap을 close하지 않는 문제 완화
+        if (this._stream) {
+            this._stream.getTracks().forEach(track => {
+                track.stop();
+                MemoryLogger.info('TRACK', `Camera track stopped: ${track.kind}`);
+            });
+            this._stream = null;
+        }
     }
 
     deinit() {
