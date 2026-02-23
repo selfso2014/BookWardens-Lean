@@ -43,33 +43,50 @@ class LeanRenderer {
             this._lineEls = [];
             this._pangCount = 0;
 
-            // Step 1: 단어 span 임시 렌더 (줄 경계 감지용)
+            // Step 1: 단어 span 임시 렌더
+            // display:inline-block 사용: offsetTop이 컨테이너 기준으로 정확히 측정됨
             const words = text.trim().split(/\s+/).filter(Boolean);
             words.forEach(word => {
                 const s = document.createElement('span');
-                s.style.cssText = 'display:inline; white-space:pre-wrap;';
-                s.textContent = word + '\u00A0';
+                // inline-block: 줄 내에서 흐르되 offsetTop/offsetHeight가 신뢰성 있음
+                s.style.cssText = 'display:inline-block; white-space:pre-wrap; vertical-align:top;';
+                s.textContent = word + ' ';
                 container.appendChild(s);
             });
 
-            // Step 2: display:none→flex 전환 후 레이아웃 확정 보장
-            // rAF 2번: 첫 번째는 paint 시작, 두 번째는 레이아웃 확정
+            let _retryCount = 0;
+            const MAX_RETRY = 8; // 최대 8회 재시도 (약 1.6초)
+
             const _measure = () => {
                 const spans = Array.from(container.querySelectorAll('span'));
-                const lineMap = new Map();
 
+                // 컨테이너 치수 진단
+                const cw = container.offsetWidth;
+                const ch = container.offsetHeight;
+
+                // offsetTop 방식: 컨테이너(position:relative) 기준 상대 좌표
+                const lineMap = new Map();
                 spans.forEach(s => {
-                    // getBoundingClientRect().top: viewport 기준 절대 좌표
-                    const top = Math.round(s.getBoundingClientRect().top);
+                    const top = s.offsetTop; // position:relative 컨테이너 기준
                     if (!lineMap.has(top)) lineMap.set(top, []);
                     lineMap.get(top).push(s.textContent);
                 });
 
-                // 모든 top이 동일하면(=레이아웃 미완료) 한 번 더 대기
-                if (lineMap.size <= 1 && spans.length > 5) {
-                    console.warn('[LeanRenderer] Layout not ready, retrying in 200ms');
-                    if (window.MemoryLogger) MemoryLogger.warn('RENDER', 'Layout not ready, retry');
+                const allSameTop = lineMap.size <= 1 && spans.length > 3;
+
+                if (allSameTop && _retryCount < MAX_RETRY) {
+                    _retryCount++;
+                    if (window.MemoryLogger) MemoryLogger.warn('RENDER',
+                        `retry#${_retryCount} container=${cw}x${ch}px tops=[${[...lineMap.keys()].join(',')}]`);
                     setTimeout(_measure, 200);
+                    return;
+                }
+
+                if (allSameTop) {
+                    // max retry 초과: 컨테이너 너비 기반 추정 줄 수 계산
+                    if (window.MemoryLogger) MemoryLogger.error('RENDER',
+                        `GIVE UP after ${MAX_RETRY} retries. container=${cw}x${ch}px. Using estimated lines.`);
+                    this._buildEstimatedLines(container, text, cw, resolve);
                     return;
                 }
 
@@ -85,7 +102,7 @@ class LeanRenderer {
                     return div;
                 });
 
-                // Step 4: 줄 center Y 측정
+                // Step 4: 각 줄 center Y (viewport 기준, PangDetector용)
                 const n = this._lineEls.length;
                 const lineYs = new Float32Array(n);
                 let totalH = 0;
@@ -98,14 +115,13 @@ class LeanRenderer {
 
                 const avgH = n > 0 ? totalH / n : 40;
                 const lineHalfH = avgH * 0.55;
-
-                if (window.MemoryLogger) MemoryLogger.info('RENDER', `${n} lines | avgH=${avgH.toFixed(1)}px`);
-                console.log(`[LeanRenderer] ${n} lines | avgH=${avgH.toFixed(1)} | halfH=${lineHalfH.toFixed(1)}`);
+                if (window.MemoryLogger) MemoryLogger.info('RENDER',
+                    `${n} lines | container=${cw}x${ch}px | avgH=${avgH.toFixed(1)}px | retries=${_retryCount}`);
 
                 resolve({ lineYs, lineHalfH, lineCount: n });
             };
 
-            // rAF x2 → setTimeout 200ms: display:flex 레이아웃 완전 확정 보장
+            // rAF x2 → 200ms: display:flex 레이아웃 확정 후 측정
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     setTimeout(_measure, 200);
@@ -113,6 +129,48 @@ class LeanRenderer {
             });
         });
     }
+
+    // 레이아웃 측정 실패 시: 컨테이너 너비 기반 추정
+    _buildEstimatedLines(container, text, containerWidth, resolve) {
+        const usableWidth = Math.max(containerWidth - 40, 300); // padding 제외
+        const charsPerLine = Math.floor(usableWidth / 10); // Georgia 1.1rem 평균 ~10px/char
+        const words = text.trim().split(/\s+/);
+        const lines = [];
+        let current = '';
+
+        words.forEach(word => {
+            if ((current + word).length > charsPerLine && current.length > 0) {
+                lines.push(current.trim());
+                current = word + ' ';
+            } else {
+                current += word + ' ';
+            }
+        });
+        if (current.trim()) lines.push(current.trim());
+
+        container.innerHTML = '';
+        this._lineEls = lines.map(lineText => {
+            const div = document.createElement('div');
+            div.className = 'text-line';
+            div.textContent = lineText;
+            container.appendChild(div);
+            return div;
+        });
+
+        const n = this._lineEls.length;
+        const lineYs = new Float32Array(n);
+        this._lineEls.forEach((el, i) => {
+            const r = el.getBoundingClientRect();
+            lineYs[i] = r.top + r.height * 0.5;
+        });
+
+        const lineHalfH = 24; // 기본값
+        if (window.MemoryLogger) MemoryLogger.info('RENDER',
+            `ESTIMATED ${n} lines (charsPerLine=${charsPerLine}, usableW=${usableWidth}px)`);
+
+        resolve({ lineYs, lineHalfH, lineCount: n });
+    }
+
 
     // ─────────────────────────────────────────────────────────────────
     // PUBLIC: pang 발생 시 줄 완료 시각 효과
