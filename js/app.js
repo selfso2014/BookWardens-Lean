@@ -393,16 +393,23 @@ async function _startReading() {
     MemoryLogger.info('APP', `Reading P${G.paraIndex}: ${lineCount} lines`);
     G.pangDetector.lockLayout(lineYs, lineHalfH);
 
-    // "Confront" 버튼 표시 (TheBookWardens 동일)
+    // Confront 버튼 처리
     const btnConfront = document.getElementById('btn-confront-villain');
     if (btnConfront) {
         btnConfront.style.display = 'none';
-        // 30초 후 또는 모든 줄 읽기 완료 시 표시
-        setTimeout(() => {
-            if (G.currentScreen === 'screen-read') {
-                _showConfrontButton();
-            }
-        }, 30000);
+
+        if (lineCount <= 1) {
+            // 단일 줄: return sweep 탐지 불가 → 5초 후 자동 표시
+            MemoryLogger.info('APP', 'Single-line paragraph: auto-confront in 5s');
+            setTimeout(() => {
+                if (G.currentScreen === 'screen-read') _showConfrontButton();
+            }, 5000);
+        } else {
+            // 다줄: 30초 타임아웃 (pang이 충분하면 _onPang이 먼저 표시)
+            setTimeout(() => {
+                if (G.currentScreen === 'screen-read') _showConfrontButton();
+            }, 30000);
+        }
     }
 }
 
