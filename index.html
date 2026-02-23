@@ -1238,12 +1238,36 @@
   </div>
 
   <!-- ── Scripts (BookWardens-Lean boot chain) ─────────────────────── -->
-  <!-- SDK_Test 방식: ServiceWorker → SeeSo SDK → 게임 스크립트 순차 로드  -->
-  <!-- COOP/COEP 헤더는 coi-serviceworker.js가 주입 (WASM SharedArrayBuffer) -->
+  <!-- easy-seeso.js는 ES module → type="module" 태그로만 로드 가능.            -->
+  <!-- 아래 인라인 스크립트가 Promise를 준비하고, module 태그가 resolve한다.    -->
+
+  <!-- Step A: EasySeeso 로드 완료 대기용 Promise 생성 -->
+  <script>
+    window.__easySeesoPending = new Promise(function (resolve, reject) {
+      window.__resolveEasySeeso = resolve;
+      window.__rejectEasySeeso = reject;
+      // 20초 타임아웃
+      setTimeout(function () { reject(new Error('EasySeeso load timeout (20s)')); }, 20000);
+    });
+  </script>
+
+  <!-- Step B: easy-seeso.js를 ES Module로 로드 → window.EasySeeso 노출 -->
+  <script type="module">
+    try {
+      const mod = await import('./seeso/easy-seeso.js');
+      window.EasySeeso = mod.default;
+      window.__resolveEasySeeso(mod.default);
+      console.log('[MODULE] EasySeeso loaded ✅');
+    } catch (e) {
+      console.error('[MODULE] EasySeeso load failed:', e);
+      window.__rejectEasySeeso(e);
+    }
+  </script>
+
+  <!-- Step C: 나머지 게임 스크립트 순차 로드 (regular scripts) -->
   <script>
     (async function boot() {
       // ── 1. ServiceWorker (COI) 준비 대기 ────────────────────────────
-      // coi-serviceworker.js가 이미 <head>에서 등록했으므로 ready 대기만 함
       let swReady = false;
       if ('serviceWorker' in navigator) {
         try {
@@ -1259,27 +1283,27 @@
           const s = document.createElement('script');
           s.src = src;
           s.onload = resolve;
-          s.onerror = () => reject(new Error('Failed: ' + src));
+          s.onerror = () => reject(new Error('Failed to load: ' + src));
           document.head.appendChild(s);
         });
       }
 
       // [FIX] 스플래시는 인라인 onclick으로 처리 완료.
-      // app.js 로드 후 혹시 home이 아직 active가 아니면 정리만 해줌.
       function _afterBootSplashCheck() {
-        if (window._splashDone) return; // 이미 탭했으면 끔
+        if (window._splashDone) return;
         // 아직 탭 안 했으면 splash가 active 상태 — app.js의 initSplash()가 처리
       }
 
       try {
         // ── 3. 핵심 유틸 ─────────────────
         await loadScript('./js/memory-logger.js');
+        MemoryLogger.info('BOOT', `SW=${swReady} | COOP=${self.crossOriginIsolated}`);
 
-        // ── 4. SeeSo SDK ──────────────────
-        // easy-seeso.js: IIFE 래퍼 → 동적 import()로 seeso.min.js 로드 후 window.EasySeeso 노출
-        await loadScript('./seeso/easy-seeso.js');
-        // seeso.min.js 동적 import 완료 대기 (window.__easySeesoPending)
-        if (window.__easySeesoPending) await window.__easySeesoPending;
+        // ── 4. SeeSo SDK 준비 대기 ────────
+        // Step B의 <script type="module">이 EasySeeso를 로드 중
+        MemoryLogger.info('BOOT', 'Waiting for EasySeeso module...');
+        await window.__easySeesoPending;
+        MemoryLogger.info('BOOT', `EasySeeso ready: ${typeof window.EasySeeso}`);
 
         // ── 5. 게임 엔진 모듈 ────────────
         await loadScript('./js/seeso-manager.js');
@@ -1295,9 +1319,12 @@
         await loadScript('./js/app.js');
 
         _afterBootSplashCheck();
-        console.log('[BOOT] ✅ All scripts loaded');
+        MemoryLogger.info('BOOT', '✅ All scripts loaded');
       } catch (e) {
-        console.error('[BOOT] ❌', e.message);
+        // MemoryLogger가 로드된 경우 기록, 아닌 경우 console만
+        const msg = '[BOOT] ❌ ' + e.message;
+        console.error(msg);
+        if (window.MemoryLogger) MemoryLogger.error('BOOT', e.message);
         const el = document.getElementById('status');
         if (el) el.textContent = '❌ 로드 실패: ' + e.message;
       }
