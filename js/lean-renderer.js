@@ -52,16 +52,25 @@ class LeanRenderer {
                 container.appendChild(s);
             });
 
-            // Step 2: iOS 레이아웃 완료 후 줄 감지 + 재구성
-            setTimeout(() => {
+            // Step 2: 레이아웃 완료 후 줄 감지
+            const _measure = (resolve) => {
                 const spans = Array.from(container.querySelectorAll('span'));
-                const lineMap = new Map(); // offsetTop → word 배열
+                const lineMap = new Map(); // top(px, rounded) → word 배열
 
                 spans.forEach(s => {
-                    const top = s.offsetTop;
+                    // getBoundingClientRect().top 사용 (offsetTop보다 신뢰성 높음)
+                    // 소수점 반올림으로 같은 줄 판별
+                    const top = Math.round(s.getBoundingClientRect().top);
                     if (!lineMap.has(top)) lineMap.set(top, []);
                     lineMap.get(top).push(s.textContent);
                 });
+
+                // 모든 top이 동일(=렌더링 안 됨)하면 재시도
+                if (lineMap.size <= 1 && spans.length > 5) {
+                    console.warn('[LeanRenderer] All spans have same top — retrying in 300ms');
+                    setTimeout(() => _measure(resolve), 300);
+                    return;
+                }
 
                 // Step 3: 줄 div 재구성 (.text-line)
                 container.innerHTML = '';
@@ -90,9 +99,13 @@ class LeanRenderer {
                 const lineHalfH = avgH * 0.55;
 
                 console.log(`[LeanRenderer] ${n} lines | avgH=${avgH.toFixed(1)} | halfH=${lineHalfH.toFixed(1)}`);
+                if (window.MemoryLogger) MemoryLogger.info('RENDER', `${n} lines | avgH=${avgH.toFixed(1)}px | halfH=${lineHalfH.toFixed(1)}px`);
 
                 resolve({ lineYs, lineHalfH, lineCount: n });
-            }, 150); // 150ms: iOS 레이아웃 완료 보장
+            };
+
+            // 300ms: iOS 레이아웃 + CSS transition 완료 보장
+            setTimeout(() => _measure(resolve), 300);
         });
     }
 
